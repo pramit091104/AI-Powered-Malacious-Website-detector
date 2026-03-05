@@ -12,6 +12,8 @@ export interface URLFeatures {
   hyphenCount: number;
   domainLength: number;
   redirectCount: number; // Simulated as we don't fetch the URL here
+  digitCount: number;
+  isShortener: number;
 }
 
 export const extractFeatures = (url: string): URLFeatures => {
@@ -36,6 +38,8 @@ export const extractFeatures = (url: string): URLFeatures => {
       hyphenCount: 0,
       domainLength: 0,
       redirectCount: 0,
+      digitCount: 0,
+      isShortener: 0,
     };
   }
 
@@ -82,6 +86,13 @@ export const extractFeatures = (url: string): URLFeatures => {
   // Here we check for multiple 'http' or 'https' in the URL string which often indicates redirection chains.
   const redirectCount = (cleanUrl.match(/http/gi) || []).length - 1;
 
+  // 11. Digit Count
+  const digitCount = (cleanUrl.match(/\d/g) || []).length;
+
+  // 12. Shortener usage
+  const shorteners = ['bit.ly', 'goo.gl', 't.co', 'is.gd', 'tinyurl.com', 'tr.im', 'v.gd', 'snipurl.com', 'shorte.st', 'ow.ly'];
+  const isShortener = shorteners.some(s => hostname.includes(s)) ? 1 : 0;
+
   return {
     urlLength,
     dotCount,
@@ -93,5 +104,7 @@ export const extractFeatures = (url: string): URLFeatures => {
     hyphenCount,
     domainLength,
     redirectCount,
+    digitCount,
+    isShortener,
   };
 };

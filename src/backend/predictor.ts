@@ -13,6 +13,8 @@ export interface ScanPrediction {
 interface ModelWeights {
   featureNames: (keyof URLFeatures)[];
   weights: number[];
+  means?: number[];
+  stds?: number[];
   accuracy: number;
 }
 
@@ -26,7 +28,7 @@ const sigmoid = (z: number): number => 1 / (1 + Math.exp(-z));
  */
 export const predictUrl = (url: string): ScanPrediction => {
   const features = extractFeatures(url);
-  
+
   if (!fs.existsSync(WEIGHTS_FILE)) {
     console.warn('Model weights not found. Please run "npm run train" first.');
     // Fallback to a basic heuristic if not trained yet
@@ -35,12 +37,16 @@ export const predictUrl = (url: string): ScanPrediction => {
 
   try {
     const modelData: ModelWeights = JSON.parse(fs.readFileSync(WEIGHTS_FILE, 'utf-8'));
-    const { featureNames, weights } = modelData;
+    const { featureNames, weights, means, stds } = modelData;
 
     // Calculate dot product: bias + sum(feature * weight)
     let z = weights[0]; // weights[0] is the bias
     for (let i = 0; i < featureNames.length; i++) {
-      z += features[featureNames[i]] * weights[i + 1];
+      let val = Number(features[featureNames[i]]);
+      if (means && stds) {
+        val = (val - means[i]) / stds[i];
+      }
+      z += val * weights[i + 1];
     }
 
     const probability = sigmoid(z);
@@ -79,7 +85,7 @@ const fallbackPredict = (url: string, features: URLFeatures): ScanPrediction => 
   if (features.hasIP) score += 0.5;
   if (!features.isHTTPS) score += 0.3;
   if (features.suspiciousKeywordCount > 0) score += 0.4;
-  
+
   const prob = Math.min(score, 1.0);
   return {
     prediction: prob > 0.7 ? 'Malicious' : prob > 0.3 ? 'Suspicious' : 'Safe',
