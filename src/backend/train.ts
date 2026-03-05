@@ -1,7 +1,6 @@
 import fs from 'fs';
 import path from 'path';
 import { parse } from 'csv-parse/sync';
-import { extractFeatures, URLFeatures } from './featureExtraction';
 
 /**
  * A simple Logistic Regression implementation for binary classification.
@@ -28,7 +27,7 @@ async function train() {
     return;
   }
 
-  const fileContent = fs.readFileSync(csvPath, 'utf-8');
+  const fileContent = fs.readFileSync(csvPath, 'utf-8').replace(/^\uFEFF/, '');
   const records: TrainingData[] = parse(fileContent, {
     columns: true,
     skip_empty_lines: true,
@@ -36,20 +35,26 @@ async function train() {
 
   console.log(`Loaded ${records.length} records.`);
 
+  const ignoredColumns = new Set(['FILENAME', 'URL', 'url', 'Domain', 'domain', 'TLD', 'tld', 'Title', 'title', 'label']);
+  const featureNames = Object.keys(records[0]).filter(col => {
+    const cleanCol = col.replace(/^\uFEFF/, '').trim();
+    // Also strip any invisible characters from the actual string representation
+    const sanitizedCol = cleanCol.replace(/[^a-zA-Z0-9_]/g, '');
+    return !ignoredColumns.has(sanitizedCol) && !ignoredColumns.has(cleanCol) && !ignoredColumns.has(col);
+  });
+
   // Prepare features and labels
   const X: number[][] = [];
   const y: number[] = [];
-  const featureNames: (keyof URLFeatures)[] = [
-    'urlLength', 'dotCount', 'subdomainCount', 'hasIP', 'isHTTPS',
-    'suspiciousKeywordCount', 'specialCharCount', 'hyphenCount', 'domainLength', 'redirectCount',
-    'digitCount', 'isShortener'
-  ];
 
   for (const record of records) {
     const url = record.URL || record.url;
     if (!url) continue;
-    const features = extractFeatures(url);
-    const featureVector = featureNames.map(name => features[name]);
+
+    const featureVector = featureNames.map(name => {
+      const val = Number(record[name]);
+      return isNaN(val) ? 0 : val;
+    });
     // Add bias term (1.0)
     X.push([1.0, ...featureVector]);
     y.push(Number(record.label));

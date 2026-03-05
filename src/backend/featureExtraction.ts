@@ -1,110 +1,133 @@
-/**
- * Extracts cybersecurity features from a given URL.
- */
-export interface URLFeatures {
-  urlLength: number;
-  dotCount: number;
-  subdomainCount: number;
-  hasIP: number;
-  isHTTPS: number;
-  suspiciousKeywordCount: number;
-  specialCharCount: number;
-  hyphenCount: number;
-  domainLength: number;
-  redirectCount: number; // Simulated as we don't fetch the URL here
-  digitCount: number;
-  isShortener: number;
-}
+import axios from 'axios';
+import * as cheerio from 'cheerio';
 
-export const extractFeatures = (url: string): URLFeatures => {
+/**
+ * Dynamically extracts all 50 features from a live URL using axios and cheerio.
+ */
+export const extractFeaturesAsync = async (url: string) => {
+  const features: any = {};
   let cleanUrl = url.trim();
   if (!cleanUrl.startsWith('http')) {
     cleanUrl = 'http://' + cleanUrl;
   }
 
-  let urlObj: URL;
+  let urlObj;
   try {
     urlObj = new URL(cleanUrl);
   } catch (e) {
-    // Fallback for malformed URLs
-    return {
-      urlLength: cleanUrl.length,
-      dotCount: (cleanUrl.match(/\./g) || []).length,
-      subdomainCount: 0,
-      hasIP: 0,
-      isHTTPS: 0,
-      suspiciousKeywordCount: 0,
-      specialCharCount: 0,
-      hyphenCount: 0,
-      domainLength: 0,
-      redirectCount: 0,
-      digitCount: 0,
-      isShortener: 0,
-    };
+    urlObj = new URL('http://malformed.internal');
   }
 
   const hostname = urlObj.hostname;
-  const path = urlObj.pathname + urlObj.search;
 
-  // 1. URL Length
-  const urlLength = cleanUrl.length;
+  // Basic String Features
+  features.URLLength = cleanUrl.length;
+  features.DomainLength = hostname.length;
+  features.IsDomainIP = /^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/.test(hostname) ? 1 : 0;
+  features.IsHTTPS = urlObj.protocol === 'https:' ? 1 : 0;
 
-  // 2. Dot Count
-  const dotCount = (cleanUrl.match(/\./g) || []).length;
+  const tlds = hostname.split('.');
+  features.TLDLength = tlds.length > 1 ? tlds[tlds.length - 1].length : 0;
+  features.NoOfSubDomain = tlds.length > 2 ? tlds.length - 2 : 0;
 
-  // 3. Subdomain Count
-  const subdomains = hostname.split('.');
-  const subdomainCount = subdomains.length > 2 ? subdomains.length - 2 : 0;
+  // Character Counts
+  features.NoOfLettersInURL = (cleanUrl.match(/[a-zA-Z]/g) || []).length;
+  features.LetterRatioInURL = features.NoOfLettersInURL / features.URLLength;
+  features.NoOfDegitsInURL = (cleanUrl.match(/\d/g) || []).length;
+  features.DegitRatioInURL = features.NoOfDegitsInURL / features.URLLength;
+  features.NoOfEqualsInURL = (cleanUrl.match(/=/g) || []).length;
+  features.NoOfQMarkInURL = (cleanUrl.match(/\?/g) || []).length;
+  features.NoOfAmpersandInURL = (cleanUrl.match(/&/g) || []).length;
 
-  // 4. Presence of IP Address
-  const ipRegex = /^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/;
-  const hasIP = ipRegex.test(hostname) ? 1 : 0;
+  const specialChars = (cleanUrl.match(/[^a-zA-Z0-9]/g) || []).length;
+  features.NoOfOtherSpecialCharsInURL = specialChars - (features.NoOfEqualsInURL + features.NoOfQMarkInURL + features.NoOfAmpersandInURL);
+  features.SpacialCharRatioInURL = specialChars / features.URLLength;
 
-  // 5. HTTPS Usage
-  const isHTTPS = urlObj.protocol === 'https:' ? 1 : 0;
+  // Defaults for complex heuristcs
+  features.URLSimilarityIndex = 100.0;
+  features.CharContinuationRate = 1.0;
+  features.TLDLegitimateProb = 0.5;
+  features.URLCharProb = 0.05;
+  features.HasObfuscation = 0;
+  features.NoOfObfuscatedChar = 0;
+  features.ObfuscationRatio = 0;
 
-  // 6. Suspicious Keywords
-  const suspiciousKeywords = ['login', 'secure', 'verify', 'update', 'account', 'banking', 'paypal', 'signin', 'confirm'];
-  const suspiciousKeywordCount = suspiciousKeywords.reduce((count, kw) => {
-    return count + (cleanUrl.toLowerCase().includes(kw) ? 1 : 0);
-  }, 0);
+  // Web Scraping Features
+  try {
+    const response = await axios.get(cleanUrl, {
+      timeout: 5000,
+      maxRedirects: 5,
+      validateStatus: () => true // Resolve on any status code
+    });
 
-  // 7. Special Characters
-  const specialChars = ['@', '?', '&', '=', '_', '~'];
-  const specialCharCount = specialChars.reduce((count, char) => {
-    return count + (cleanUrl.split(char).length - 1);
-  }, 0);
+    const finalUrl = response.request.res.responseUrl || cleanUrl;
+    features.NoOfURLRedirect = finalUrl !== cleanUrl ? 1 : 0;
+    features.NoOfSelfRedirect = 0;
 
-  // 8. Hyphen Count
-  const hyphenCount = (cleanUrl.match(/-/g) || []).length;
+    const html = typeof response.data === 'string' ? response.data : '';
+    const $ = cheerio.load(html);
 
-  // 9. Domain Length
-  const domainLength = hostname.length;
+    // HTML Structure Features
+    const lines = html.split('\n');
+    features.LineOfCode = lines.length;
+    features.LargestLineLength = Math.max(...lines.map(l => l.length), 0);
 
-  // 10. Redirect Count (Simulated)
-  // In a real production system, we'd follow redirects.
-  // Here we check for multiple 'http' or 'https' in the URL string which often indicates redirection chains.
-  const redirectCount = (cleanUrl.match(/http/gi) || []).length - 1;
+    const title = $('title').text() || '';
+    features.HasTitle = title.length > 0 ? 1 : 0;
+    features.DomainTitleMatchScore = title.toLowerCase().includes(hostname.toLowerCase()) ? 100 : 0;
+    features.URLTitleMatchScore = title.toLowerCase().includes(tlds[0].toLowerCase()) ? 100 : 0;
 
-  // 11. Digit Count
-  const digitCount = (cleanUrl.match(/\d/g) || []).length;
+    features.HasFavicon = $('link[rel="icon"], link[rel="shortcut icon"]').length > 0 ? 1 : 0;
+    features.Robots = $('meta[name="robots"]').length > 0 ? 1 : 0;
+    features.IsResponsive = $('meta[name="viewport"]').length > 0 ? 1 : 0;
+    features.HasDescription = $('meta[name="description"]').length > 0 ? 1 : 0;
 
-  // 12. Shortener usage
-  const shorteners = ['bit.ly', 'goo.gl', 't.co', 'is.gd', 'tinyurl.com', 'tr.im', 'v.gd', 'snipurl.com', 'shorte.st', 'ow.ly'];
-  const isShortener = shorteners.some(s => hostname.includes(s)) ? 1 : 0;
+    features.NoOfPopup = html.toLowerCase().includes('window.open') ? 1 : 0;
+    features.NoOfiFrame = $('iframe').length;
+    features.HasExternalFormSubmit = $('form[action^="http"]').filter((_, el) => !$(el).attr('action')?.includes(hostname)).length > 0 ? 1 : 0;
 
-  return {
-    urlLength,
-    dotCount,
-    subdomainCount,
-    hasIP,
-    isHTTPS,
-    suspiciousKeywordCount,
-    specialCharCount,
-    hyphenCount,
-    domainLength,
-    redirectCount,
-    digitCount,
-    isShortener,
-  };
+    const socialLinks = ['facebook.com', 'twitter.com', 'instagram.com', 'linkedin.com', 'youtube.com'];
+    features.HasSocialNet = $('a').toArray().some(a => socialLinks.some(sl => $(a).attr('href')?.includes(sl))) ? 1 : 0;
+
+    features.HasSubmitButton = $('button[type="submit"], input[type="submit"]').length > 0 ? 1 : 0;
+    features.HasHiddenFields = $('input[type="hidden"]').length > 0 ? 1 : 0;
+    features.HasPasswordField = $('input[type="password"]').length > 0 ? 1 : 0;
+
+    const text = $('body').text().toLowerCase();
+    features.Bank = text.includes('bank') ? 1 : 0;
+    features.Pay = text.includes('pay') ? 1 : 0;
+    features.Crypto = text.includes('crypto') || text.includes('bitcoin') || text.includes('wallet') ? 1 : 0;
+    features.HasCopyrightInfo = text.includes('copyright') || text.includes('©') ? 1 : 0;
+
+    // Resource Counts
+    features.NoOfImage = $('img').length;
+    features.NoOfCSS = $('link[rel="stylesheet"]').length;
+    features.NoOfJS = $('script').length;
+
+    const links = $('a');
+    let selfRef = 0, emptyRef = 0, extRef = 0;
+    links.each((_, el) => {
+      const href = $(el).attr('href') || '';
+      if (href === '#' || href === 'javascript:void(0)') emptyRef++;
+      else if (href.startsWith('/') || href.includes(hostname)) selfRef++;
+      else if (href.startsWith('http')) extRef++;
+    });
+    features.NoOfSelfRef = selfRef;
+    features.NoOfEmptyRef = emptyRef;
+    features.NoOfExternalRef = extRef;
+
+  } catch (error) {
+    console.error(`Failed to scrape ${cleanUrl}:`, error);
+    // If we fail to scrape (e.g., site is down or blocks us), we default the web features to 0
+    const webFeatures = [
+      'LineOfCode', 'LargestLineLength', 'HasTitle', 'DomainTitleMatchScore', 'URLTitleMatchScore',
+      'HasFavicon', 'Robots', 'IsResponsive', 'NoOfURLRedirect', 'NoOfSelfRedirect', 'HasDescription',
+      'NoOfPopup', 'NoOfiFrame', 'HasExternalFormSubmit', 'HasSocialNet', 'HasSubmitButton',
+      'HasHiddenFields', 'HasPasswordField', 'Bank', 'Pay', 'Crypto', 'HasCopyrightInfo',
+      'NoOfImage', 'NoOfCSS', 'NoOfJS', 'NoOfSelfRef', 'NoOfEmptyRef', 'NoOfExternalRef'
+    ];
+    webFeatures.forEach(f => features[f] = 0);
+  }
+
+  return features;
 };

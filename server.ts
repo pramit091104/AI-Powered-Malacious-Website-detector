@@ -20,8 +20,8 @@ async function startServer() {
     }
 
     try {
-      // 1. Predict using ML model
-      const prediction = predictUrl(url);
+      // 1. Predict using ML model (either via fast CSV loopkup or live scraping)
+      const prediction = await predictUrl(url);
 
       // 2. Generate AI Security Report
       const report = await generateSecurityReport(url, prediction);
