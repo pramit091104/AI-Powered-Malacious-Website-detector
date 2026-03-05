@@ -1,7 +1,7 @@
 import express from 'express';
 import { createServer as createViteServer } from 'vite';
 import { predictUrl } from './src/backend/predictor';
-import { generateSecurityReport } from './src/backend/gemini';
+import { generateSecurityReport } from './src/backend/reportGenerator';
 import { saveScan, getScanHistory } from './src/backend/database';
 import path from 'path';
 

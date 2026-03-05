@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Shield, ShieldAlert, ShieldCheck, History, Search, Loader2, AlertTriangle, ExternalLink, ChevronRight, Info } from 'lucide-react';
+import { Shield, ShieldAlert, ShieldCheck, History, Search, Loader2, AlertTriangle, ExternalLink, ChevronRight, Info, Download } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { jsPDF } from 'jspdf';
 
 interface ScanResult {
   id?: number;
@@ -63,6 +64,22 @@ export default function App() {
     } finally {
       setIsScanning(false);
     }
+  };
+
+  const downloadPDF = (reportText: string, currentUrl: string) => {
+    const doc = new jsPDF();
+    doc.setFontSize(16);
+    doc.text('Security Intelligence Report', 20, 20);
+
+    doc.setFontSize(10);
+    doc.text(`Scanned URL: ${currentUrl}`, 20, 30);
+    doc.text(`Generated on: ${new Date().toLocaleString()}`, 20, 35);
+
+    // Split text to fit PDF width
+    const splitText = doc.splitTextToSize(reportText, 170);
+    doc.text(splitText, 20, 45);
+
+    doc.save(`security-report-${currentUrl.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`);
   };
 
   const getStatusColor = (prediction: string) => {
@@ -226,8 +243,15 @@ export default function App() {
                           AI Security Intelligence Report
                         </h3>
                         <span className="text-[10px] font-mono bg-emerald-500/10 text-emerald-400 px-2 py-1 rounded border border-emerald-500/20">
-                          GEMINI 1.5 PRO
+                          Heuristic Analysis
                         </span>
+                        <button
+                          onClick={() => downloadPDF(result.report, result.url)}
+                          className="text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 bg-white/10 hover:bg-white/20 text-white px-3 py-1.5 rounded-lg border border-white/10 transition-colors"
+                        >
+                          <Download className="w-3 h-3" />
+                          Download PDF
+                        </button>
                       </div>
                       <div className="prose prose-invert max-w-none">
                         <div className="whitespace-pre-wrap text-slate-300 leading-relaxed font-mono text-sm bg-black/40 p-6 rounded-2xl border border-white/5">
