@@ -17,25 +17,24 @@ This system uses a combination of **Machine Learning (Feature Extraction & Scori
 - **Styling**: Tailwind CSS
 - **Animations**: Framer Motion
 
-## Installation & Setup
+## Training with your own dataset
 
-1. **Install Dependencies**:
-   ```bash
-   npm install
-   ```
-
-2. **Configure Environment**:
-   Ensure `GEMINI_API_KEY` is set in your environment.
-
-3. **Train/Calibrate Model**:
-   ```bash
-   npm run train
-   ```
-
-4. **Start the Application**:
-   ```bash
-   npm run dev
-   ```
+1.  **Prepare your dataset**:
+    -   Create or update `dataset/urls.csv`.
+    -   The CSV must have two columns: `url` and `label`.
+    -   `label` should be `0` for Safe and `1` for Malicious/Suspicious.
+2.  **Run the training script**:
+    ```bash
+    npm run train
+    ```
+    This script will:
+    -   Read your CSV.
+    -   Extract features for each URL.
+    -   Train a **Logistic Regression** model using Gradient Descent.
+    -   Save the trained weights to `src/backend/model_weights.json`.
+3.  **The system will automatically load the new weights**:
+    -   The `predictor.ts` loads `model_weights.json` on every scan.
+    -   No hardcoded scoring is used once the model is trained.
 
 ## Project Structure
 - `server.ts`: Main entry point (Express + Vite middleware).

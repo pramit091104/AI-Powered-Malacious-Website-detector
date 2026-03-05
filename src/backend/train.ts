@@ -1,37 +1,108 @@
-import { predictUrl } from './predictor';
+import fs from 'fs';
+import path from 'path';
+import { parse } from 'csv-parse/sync';
+import { extractFeatures, URLFeatures } from './featureExtraction';
 
 /**
- * A simulated training script that evaluates the model against a small test dataset.
- * In a real scenario, this would use a large CSV and XGBoost/Scikit-learn.
+ * A simple Logistic Regression implementation for binary classification.
+ * Trains on the dataset and saves weights to a JSON file.
  */
-const testDataset = [
-  { url: 'https://www.google.com', label: 'Safe' },
-  { url: 'https://www.github.com', label: 'Safe' },
-  { url: 'http://secure-login-paypal-verify.com', label: 'Malicious' },
-  { url: 'http://192.168.1.1/admin', label: 'Suspicious' },
-  { url: 'https://wellsfargo-update-account.net', label: 'Malicious' },
-  { url: 'https://amazon-security-check.co', label: 'Suspicious' },
-  { url: 'https://microsoft.com', label: 'Safe' },
-];
 
-async function train() {
-  console.log('--- Starting Model Calibration ---');
-  console.log('Loading dataset...');
-  
-  let correct = 0;
-  
-  for (const item of testDataset) {
-    const result = predictUrl(item.url);
-    const isCorrect = result.prediction === item.label;
-    if (isCorrect) correct++;
-    
-    console.log(`URL: ${item.url.padEnd(40)} | Expected: ${item.label.padEnd(10)} | Predicted: ${result.prediction.padEnd(10)} | ${isCorrect ? '✅' : '❌'}`);
-  }
-  
-  const accuracy = (correct / testDataset.length) * 100;
-  console.log('---------------------------------');
-  console.log(`Calibration Complete. Accuracy: ${accuracy.toFixed(2)}%`);
-  console.log('Model weights saved to memory.');
+interface TrainingData {
+  url: string;
+  label: number; // 0 for Safe, 1 for Malicious/Suspicious
 }
 
-train();
+const WEIGHTS_FILE = path.resolve(process.cwd(), 'src/backend/model_weights.json');
+
+// Sigmoid function
+const sigmoid = (z: number): number => 1 / (1 + Math.exp(-z));
+
+async function train() {
+  console.log('--- Starting Model Training ---');
+  
+  const csvPath = path.resolve(process.cwd(), 'dataset/urls.csv');
+  if (!fs.existsSync(csvPath)) {
+    console.error('Dataset not found at dataset/urls.csv');
+    return;
+  }
+
+  const fileContent = fs.readFileSync(csvPath, 'utf-8');
+  const records: TrainingData[] = parse(fileContent, {
+    columns: true,
+    skip_empty_lines: true,
+  });
+
+  console.log(`Loaded ${records.length} records.`);
+
+  // Prepare features and labels
+  const X: number[][] = [];
+  const y: number[] = [];
+  const featureNames: (keyof URLFeatures)[] = [
+    'urlLength', 'dotCount', 'subdomainCount', 'hasIP', 'isHTTPS',
+    'suspiciousKeywordCount', 'specialCharCount', 'hyphenCount', 'domainLength', 'redirectCount'
+  ];
+
+  for (const record of records) {
+    const features = extractFeatures(record.url);
+    const featureVector = featureNames.map(name => features[name]);
+    // Add bias term (1.0)
+    X.push([1.0, ...featureVector]);
+    y.push(Number(record.label));
+  }
+
+  // Initialize weights (including bias)
+  let weights = new Array(featureNames.length + 1).fill(0);
+  const learningRate = 0.01;
+  const iterations = 5000;
+
+  console.log('Training using Gradient Descent...');
+
+  // Gradient Descent
+  for (let i = 0; i < iterations; i++) {
+    let gradients = new Array(weights.length).fill(0);
+    
+    for (let j = 0; j < X.length; j++) {
+      const prediction = sigmoid(X[j].reduce((sum, val, idx) => sum + val * weights[idx], 0));
+      const error = prediction - y[j];
+      
+      for (let k = 0; k < weights.length; k++) {
+        gradients[k] += error * X[j][k];
+      }
+    }
+
+    for (let k = 0; k < weights.length; k++) {
+      weights[k] -= (learningRate / X.length) * gradients[k];
+    }
+
+    if (i % 1000 === 0) {
+      console.log(`Iteration ${i}...`);
+    }
+  }
+
+  // Save weights
+  const modelData = {
+    featureNames,
+    weights,
+    trainedAt: new Date().toISOString(),
+    accuracy: calculateAccuracy(X, y, weights)
+  };
+
+  fs.writeFileSync(WEIGHTS_FILE, JSON.stringify(modelData, null, 2));
+  
+  console.log('---------------------------------');
+  console.log(`Training Complete. Accuracy: ${(modelData.accuracy * 100).toFixed(2)}%`);
+  console.log(`Model weights saved to ${WEIGHTS_FILE}`);
+}
+
+function calculateAccuracy(X: number[][], y: number[], weights: number[]): number {
+  let correct = 0;
+  for (let i = 0; i < X.length; i++) {
+    const prediction = sigmoid(X[i].reduce((sum, val, idx) => sum + val * weights[idx], 0));
+    const label = prediction >= 0.5 ? 1 : 0;
+    if (label === y[i]) correct++;
+  }
+  return correct / y.length;
+}
+
+train().catch(console.error);
