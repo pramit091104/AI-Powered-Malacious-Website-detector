@@ -6,4 +6,6 @@ coverage/
 *.log
 .env*
 !.env.example
-.csv*
+dataset/
+*.md
+!.README.md

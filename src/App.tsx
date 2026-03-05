@@ -221,15 +221,79 @@ export default function App() {
                         <div className="p-6 rounded-3xl bg-white/5 border border-white/10 space-y-4">
                           <h4 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
                             <Info className="w-4 h-4 text-emerald-400" />
-                            Extracted Features
+                            Risk Analysis
                           </h4>
-                          <div className="space-y-2 font-mono text-[11px]">
-                            {Object.entries(result.features).map(([key, value]: [string, any]) => (
-                              <div key={key} className="flex justify-between py-1 border-b border-white/5 last:border-0 text-slate-400">
-                                <span className="capitalize">{key.replace(/([A-Z])/g, ' $1')}</span>
-                                <span className="text-white">{typeof value === 'number' ? value : value.toString()}</span>
+                          
+                          {/* Critical Indicators */}
+                          <div className="space-y-2">
+                            <p className="text-[10px] uppercase tracking-widest text-slate-500 font-mono">Critical Flags</p>
+                            <div className="space-y-1 text-[11px]">
+                              {result.features.IsDomainIP === 1 && result.features.IsHTTPS !== 1 && (
+                                <div className="flex items-center gap-2 text-rose-400">
+                                  <div className="w-1.5 h-1.5 rounded-full bg-rose-400" />
+                                  IP + No HTTPS
+                                </div>
+                              )}
+                              {result.features.HasObfuscation === 1 && (
+                                <div className="flex items-center gap-2 text-rose-400">
+                                  <div className="w-1.5 h-1.5 rounded-full bg-rose-400" />
+                                  URL Obfuscation
+                                </div>
+                              )}
+                              {result.features.NoOfURLRedirect > 2 && (
+                                <div className="flex items-center gap-2 text-rose-400">
+                                  <div className="w-1.5 h-1.5 rounded-full bg-rose-400" />
+                                  Multiple Redirects
+                                </div>
+                              )}
+                              {result.features.HasPasswordField === 1 && result.features.IsHTTPS !== 1 && (
+                                <div className="flex items-center gap-2 text-rose-400">
+                                  <div className="w-1.5 h-1.5 rounded-full bg-rose-400" />
+                                  Password Field (No HTTPS)
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Key Metrics */}
+                          <div className="space-y-2 font-mono text-[11px] pt-2 border-t border-white/5">
+                            <p className="text-[10px] uppercase tracking-widest text-slate-500 font-mono">Key Metrics</p>
+                            <div className="flex justify-between py-1 text-slate-400">
+                              <span>HTTPS</span>
+                              <span className={result.features.IsHTTPS === 1 ? 'text-emerald-400' : 'text-rose-400'}>
+                                {result.features.IsHTTPS === 1 ? '✓ Yes' : '✗ No'}
+                              </span>
+                            </div>
+                            <div className="flex justify-between py-1 text-slate-400">
+                              <span>Domain Type</span>
+                              <span className={result.features.IsDomainIP === 1 ? 'text-amber-400' : 'text-emerald-400'}>
+                                {result.features.IsDomainIP === 1 ? 'IP Address' : 'Domain Name'}
+                              </span>
+                            </div>
+                            <div className="flex justify-between py-1 text-slate-400">
+                              <span>URL Length</span>
+                              <span className={result.features.URLLength > 75 ? 'text-amber-400' : 'text-white'}>
+                                {result.features.URLLength}
+                              </span>
+                            </div>
+                            <div className="flex justify-between py-1 text-slate-400">
+                              <span>Subdomains</span>
+                              <span className={result.features.NoOfSubDomain > 3 ? 'text-amber-400' : 'text-white'}>
+                                {result.features.NoOfSubDomain}
+                              </span>
+                            </div>
+                            {result.features.NoOfiFrame > 0 && (
+                              <div className="flex justify-between py-1 text-slate-400">
+                                <span>iFrames</span>
+                                <span className="text-amber-400">{result.features.NoOfiFrame}</span>
                               </div>
-                            ))}
+                            )}
+                            {result.features.HasHiddenFields === 1 && (
+                              <div className="flex justify-between py-1 text-slate-400">
+                                <span>Hidden Fields</span>
+                                <span className="text-amber-400">Detected</span>
+                              </div>
+                            )}
                           </div>
                         </div>
                       )}

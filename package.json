@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "tsx server.ts",
     "train": "tsx src/backend/train.ts",
+    "train:tf": "tsx src/backend/train_tf.ts",
     "build": "vite build",
     "preview": "vite preview",
     "clean": "rm -rf dist",
@@ -14,6 +15,7 @@
   "dependencies": {
     "@google/genai": "^1.29.0",
     "@tailwindcss/vite": "^4.1.14",
+    "@tensorflow/tfjs": "^4.22.0",
     "@vitejs/plugin-react": "^5.0.4",
     "axios": "^1.13.6",
     "better-sqlite3": "^12.4.1",
